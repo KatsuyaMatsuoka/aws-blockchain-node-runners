@@ -14,12 +14,12 @@ export class IndyNodeStack extends cdk.Stack {
       ipAddresses: ec2.IpAddresses.cidr('10.0.0.0/16'),
     });
 
-    // Node の Client 向け SecurityGroup
+    // SecurityGroup of Nodes for Clients
     const clientSG = new ec2.SecurityGroup(this, 'ClientSG', {vpc});
     clientSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(9702), 'Allow 9702 from anywhere');
-    // Node の Node 向け SecurityGroup
+    
+    // SecurityGroup of Nodes for Other Nodes
     const nodeSG = new ec2.SecurityGroup(this, 'NodeSG', {vpc});
-    // TODO: Source IP を Node IPs に制限
     nodeSG.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(9701), 'Allow 9701 from anywhere');
 
     const node1 = new IndyNodeInstance(this, "Node1",{vpc, clientSG, nodeSG});

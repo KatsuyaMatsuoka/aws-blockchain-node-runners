@@ -6,8 +6,8 @@
 
 ![Architecture](./doc/assets/Architecture.png)
 
-本サンプルは Hyperledger Indy のネットワークを AWS 上に構築する。
-全体像は下図の通り、処理自体は４つの Steward （Validator Node）で行われ、ネットワークの管理は Trustee で行われる。リソースの実態は、Steward 用の４つの EC2 インスタンスと、Trustee 用の１つの EC2 インスタンスである。
+This is a sample of building a Hyperledger Indy network on AWS.
+The overall architecture is shown below, processing itself is performed by 4 Stewards (Validator Nodes), and network management is performed with Trustee. It consists of 4 EC2 instances for Steward and 1 EC2 instance for Trustee.
 
 ## Solution Walkthrough
 
@@ -25,29 +25,32 @@ npm install
 
 **NOTE:** In this tutorial we will set all major configuration through environment variables, but you also can modify parameters in `config/config.ts`.
 
-### Deploy Indy Node
+### Deploy Indy Nodes
 
-Indy Network を Steward 用の４つの EC2 インスタンスと、Trustee 用の１つの EC2 インスタンスを用いて構築する。下記手順の中で DID など各種情報を取得し、それらを[こちらのスプレッドシート](https://docs.google.com/spreadsheets/d/1LDduIeZp7pansd9deXeVSqGgdf0VdAHNMc7xYli3QAY/edit#gid=0)を参考にまとめる。
+Indy Network is built using 4 EC2 instances for Steward and 1 EC2 instance for Trustee. Various information such as DID is acquired in the following procedure, copied by referring to [this community spreadsheet](https://docs.google.com/spreadsheets/d/1LDduIeZp7pansd9deXeVSqGgdf0VdAHNMc7xYli3QAY/edit#gid=0).
 
-#### リソースの構築
+#### Building resources
 
-npmの依存パッケージをインストール
-```sh
+1. Install npm dependency packages
+
+```bash
 cd lib/indy
 pwd
 # Make sure you are in aws-blockchain-node-runners/lib/indy
 npm install
 ```
-​
-AWS Cloud Development Kit(CDK)の初期設定  
-下記のコマンドはデプロイを実施するリージョンでAWS CDKを使用していない場合のみ実施する
-```sh
+
+2. Setting up initial AWS Cloud Development Kit (CDK)
+
+The following command is executed only when using AWS CDK for the first time in the region where the deployment will be carried out.
+
+```bash
 npx cdk bootstrap
 ```
 
-CDK でリソースの構築
+3. Deploying resources with CDK
 
-```sh
+```bash
 npx cdk deploy
 
 Outputs:
@@ -57,45 +60,53 @@ IndyNodeStack.Node3InstanceId = i-xxxxxxxxxxxxxxxxx
 IndyNodeStack.Node4InstanceId = i-xxxxxxxxxxxxxxxxx
 IndyNodeStack.TrusteeInstanceId = i-xxxxxxxxxxxxxxxxx
 ```
-​
-Indy Node (Steward) のインスタンスについては[こちら](https://github.com/hyperledger/indy-node/blob/main/docs/source/install-docs/AWS-NodeInstall-20.04.md)を参考にしている。
-​
-#### Trustee の設定
-​
-EC2 (もしくは SSM) のコンソールから Session Manager で Trustee インスタンスにログインして、Trustee/Steward の DID などの生成 (Trustee 3つ、Steward 4つの計７回、下記の操作を行う)
+
+**NOTE:** User data for the Steward instance is created by referring to [the Community Docs](https://github.com/hyperledger/indy-node/blob/main/docs/source/install-docs/AWS-NodeInstall-20.04.md).
+
+#### Setting up Trustee
+
+Log in to the Trustee instance via Session Manager from the EC2 (or Systems Manager) console and generate Trustee/Steward DIDs.
 ​
 
-```sh
+```bash
 cd /
 ./indy-cli-rs
 ​
-wallet create <wallet_name> key=<key>
-wallet open <wallet_name> key=<key>
-did new seed=<seed>
+# Perform the following commands 3 times for Trustee and 4 times for Steward
+wallet create <WALLET_NAME> key=<KEY>
+wallet open <WALLET_NAME> key=<KEY>
+did new seed=<SEED>
 wallet close
 ```
 
-#### Steward の設定​
+#### Setting up Steward
 
-ここでは Steward は Validator Node のことを表す（[参考情報](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md#32-validator-node-installation)）。
+Log in to the Steward instance via Session Manager from the EC2 (or Systems Manager) console and generate Validator verkey, BLS key, and BLS POP.
 
-EC2 (もしくは SSM) のコンソールから Session Manager で Steward インスタンスにログインして、Validator verkey, BLS key, BLS POPの作成
-
-```sh
-sudo init_indy_node <alias> <node_ip> 9701 <client_ip> 9702 <seed>
+```bash
+sudo init_indy_node <ALIAS> <NODE_IP> 9701 <CLIENT_IP> 9702 <SEED>
 ```
 
-#### Genesis filesの生成
+**NOTE:** Here, Steward represents Validator Node ([reference information](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md#32-validator-node-installation)).
 
-1. これまでの手順で生成した情報を記載したスプレッドシートをダウンロード (Stewards and Trustees)
+#### Generating Genesis files
+
+1. Download each sheet (Stewards, Trustees) containing the information generated in the steps so far
    - File → Download → .csv
-2. `trustees.csv`/`stewards.csv` を Trustee に保存
-    - ローカルにダウンロードした csv ファイルを Session Manager 経由で転送するには AWS CLI に加えて Session Manager Plugin が必要 [(参考情報)](https://dev.classmethod.jp/articles/ssm-session-manager-support-for-tunneling-ssh-scp-on-windows10/)
-        - `scp -i <path_to_pem> <path_to_csv> ec2-user@<i-xxxxxxxx>:~/`
-​
-3. genesis file 生成
+2. Save `trustees.csv` and `stewards.csv` to Trustee instance
 
-```sh
+**NOTE:** To transfer a locally downloaded CSV file via Session Manager, use the Session Manager Plugin in addition to the AWS CLI to transfer it with the following command ([reference information](https://dev.classmethod.jp/articles/ssm-session-manager-support-for-tunneling-ssh-scp-on-windows10/)).
+
+```bash
+scp -i <PATH_TO_PEM> <PATH_TO_CSV> ec2-user@<i-xxxxxxxx>:~/
+```
+
+​
+3. Generate Genesis files
+
+Using the above two CSV files, generate Genesis files (`pool_transactions_genesis`, `domain_transactions_genesis`) with `genesis_from_files.py`
+
+```bash
 cd ~/
 wget -nc https://raw.githubusercontent.com/sovrin-foundation/steward-tools/master/create_genesis/genesis_from_files.py
 ​
@@ -112,26 +123,29 @@ INFO:root:Recovering tree from transaction log
 INFO:root:Recovered tree in 8.670999977766769e-05 seconds
 ```
 
-#### Node の設定
+#### Setting up Nodes
 
-各 Validator Node (Steward) の立ち上げを行う。
-​
-1. genesis files のダウンロードと各種ファイルの権限設定。genesis files は公開情報のためダウンロードできる場所に置いて良い (なければローカルでコピーも可)。`/var/lib/indy/`配下の全ファイルの権限を設定。 [参考 (Steward 部分の設定を実施)](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/NewNetwork/NewNetwork.md#iv-create-and-distribute-genesis-transaction-files)​
+Start up each Validator Node (Steward)
 
-```sh
+1. Download Genesis files and set permissions
+
+Download or copy Genesis files to Node instance. Then, set the permissions for all files under `/var/lib/indy/` to `indy` ([reference information](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/NewNetwork/NewNetwork.md#iv-create-and-distribute-genesis-transaction-files)​).
+
+```bash
 cd  /var/lib/indy/sample-network
 
-# domain_transactions_genesis と pool_transactions_genesis を配置
-# sudo curl -o domain_transactions_genesis <url_to_the_raw_domain_transactions_genesis_file>
-# sudo curl -o pool_transactions_genesis  <url_to_the_raw_pool_transactions_genesis_file>
+# Save domain_transactions_genesis and pool_transactions_genesis
+# sudo curl -o domain_transactions_genesis <URL_TO_THE_RAW_DOMAIN_TRANSACTIONS_GENESIS_FILE>
+# sudo curl -o pool_transactions_genesis  <URL_TO_THE_RAW_POOL_TRANSACTIONS_GENESIS_FILE>
 
 sudo chown -R indy:indy ../
 ```
 
-2. indy-node の起動と動作確認。 [参考 (3.5.2 以降を実施)](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md#35-add-node-to-a-pool)
-​
+**NOTE:** The directory name of `/var/lib/indy/sample-network` is `NETWORK_NAME` set in `lib/indy/lib/assets/user-data/steward.sh`.
 
-```sh
+2. Start indy-node and check status
+
+```bash
 sudo systemctl start indy-node
 sudo systemctl status indy-node
 sudo systemctl enable indy-node
@@ -139,19 +153,23 @@ sudo systemctl enable indy-node
 sudo validator-info
 ```
 
-#### 参考情報
+**NOTE:** [reference information](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md#35-add-node-to-a-pool)
 
-- [Indy Network の構築](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/NewNetwork/NewNetwork.md) 
-- [Genesis files の作成](https://github.com/whi-product/atd-prototyping/wiki/Notes-%E2%80%90-%E6%96%B0%E8%A6%8FIndy-network%E7%94%A8Genesis-files%E3%81%AE%E4%BD%9C%E6%88%90%E6%96%B9%E6%B3%95)
-- [Indy Node のための EC2 セットアップ](https://github.com/hyperledger/indy-node/blob/main/docs/source/install-docs/AWS-NodeInstall-20.04.md)
-- [Indy Node のセットアップ](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md)
+#### reference information
+
+- [Buidling Indy Network](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/NewNetwork/NewNetwork.md)
+- [Setting up EC2 instances for Indy Node](https://github.com/hyperledger/indy-node/blob/main/docs/source/install-docs/AWS-NodeInstall-20.04.md)
+- [Setting up Indy Node](https://github.com/pSchlarb/indy-node/blob/documentationUpdate/docs/source/installation-and-configuration.md)
 ​
 
-### 考慮事項
+### Considerations
 
-- インスタンスタイプを M 系に変更
-    - 現状のプロトタイプでは T 系インスタンスとしているが本番環境では M 系などに変更を推奨
-- EBS を追加
-   - デフォルトのブロックストレージを追加? doc 参照
-- Steward (Validator Node) のにアタッチされている Node NIC の Security Group を修正
-    - Source IP を他ノードの Node IP に制限する (現在は VPC 内にオープンになっており、Client からもアクセスできる)
+Matters to be examined in additional development etc. when using this sample are described.
+
+- Change the instance type to M
+  - Currently, it is a T instance, but in production environments, it is recommended to change to M
+- Fix the security group for Node NICs attached to Steward (Validator Node)
+  - Limit source IPs to node IPs of other nodes (currently open within VPC and can also be accessed by clients)
+  - Fix Node's private IP
+- If necessary, change the subnet to which the node belongs to a public subnet
+- Make Steward and Node separate instances

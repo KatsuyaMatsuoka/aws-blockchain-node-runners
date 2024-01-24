@@ -23,8 +23,6 @@ export class IndyNodeInstance extends Construct {
       groupSet: [clientSG.securityGroupId],
       subnetId: vpc.privateSubnets[0].subnetId,
       description: 'Client NIC',
-      // TODO: private IP 固定
-      // privateIpAddress: "10.0.128.10", 
     };
 
     const nodeNic: ec2.CfnInstance.NetworkInterfaceProperty = {
@@ -32,8 +30,6 @@ export class IndyNodeInstance extends Construct {
       groupSet: [nodeSG.securityGroupId],
       subnetId: vpc.privateSubnets[0].subnetId,
       description: 'Node NIC',
-      // TODO: private IP 固定
-      // privateIpAddress: "10.0.128.11", 
     };
 
     const instance = new ec2.Instance(this, 'Instance', {
